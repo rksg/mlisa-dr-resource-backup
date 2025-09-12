@@ -1,0 +1,13 @@
+# Core dependencies
+pyyaml>=6.0
+
+# Note: google-cloud-* libraries removed as the code uses gcloud CLI instead
+# This approach bypasses SSL certificate issues in corporate environments
+# and reduces dependency complexity
+
+# Development dependencies (optional)
+pytest>=7.0.0
+pytest-cov>=4.0.0
+black>=22.0.0
+flake8>=5.0.0
+mypy>=1.0.0

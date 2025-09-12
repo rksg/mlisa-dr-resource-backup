@@ -1,0 +1,32 @@
+# Multi-stage build for GCP Kubernetes Resource Reader
+# Stage 1: Build stage with all build dependencies
+FROM python:3.12.11-slim-bookworm as builder
+
+ARG GOOGLE_CLOUD_SDK_VERSION
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    gnupg \
+    lsb-release \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PATH=${PATH}:/usr/local/google-cloud-sdk/bin
+
+#Install Google Cloud SDK
+RUN curl -LsS --retry 3 https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-${GOOGLE_CLOUD_SDK_VERSION}-linux-x86_64.tar.gz | tar -C /usr/local -xzf -
+
+RUN gcloud config set survey/disable_prompts true && \
+    gcloud config set core/pass_credentials_to_gsutil true && \
+    gcloud components install beta kubectl && \
+    gcloud version && \
+    kubectl version --client

@@ -1,0 +1,19 @@
+version: '3'
+services:
+  build-env:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.build
+      args:
+        GOOGLE_CLOUD_SDK_VERSION: 538.0.0
+    image: mlisa-dr-resource-backup-build
+
+  mlisa-dr-resource-backup:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.service
+    depends_on:
+      - build-env
+    image: mlisa-dr-resource-backup${TAG:-}

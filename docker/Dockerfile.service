@@ -1,0 +1,7 @@
+FROM mlisa-dr-resource-backup-build
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY gcp_kube_resource_reader ./gcp_kube_resource_reader
+COPY run_service.py .
+ENTRYPOINT ["python", "run_service.py"]

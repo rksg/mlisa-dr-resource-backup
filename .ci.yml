@@ -1,0 +1,9 @@
+jobs:
+  ci:
+    steps:
+      - build_type: docker-compose
+        directory: .
+        composefile: docker-compose.yml
+      - build_type: cloud
+        target: gar
+        name: mlisa-dr-resource-backup
