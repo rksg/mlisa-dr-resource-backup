@@ -299,14 +299,12 @@ class KubeResourceReader:
     
     def load_placeholders(self, config_path: Path, resource_type: str) -> dict:
         """Load placeholder configuration from resource-specific placeholders file (cached)."""
-        if self.placeholders is not None:
-            return self.placeholders
-        
         placeholder_file = config_path + f"/{resource_type}-resources-placeholders.yaml"
         
         try:
             with open(placeholder_file, 'r') as f:
                 self.placeholders = yaml.safe_load(f) or {}
+                print(f"Loaded placeholders: {self.placeholders}")
                 return self.placeholders
         except yaml.YAMLError as e:
             print(f"Warning: Failed to parse placeholder file: {e}")
@@ -315,11 +313,10 @@ class KubeResourceReader:
     
     def add_placeholders(self, data: json, config_path: Path, resource_type: str, resource_name: str, service_type_name: str) -> json:
         """Add placeholder values enclosed in double pipe symbols based on configuration."""
-        placeholders = self.load_placeholders(config_path, service_type_name)
-        if not placeholders or resource_type not in placeholders:
+        if not self.placeholders or resource_type not in self.placeholders:
             return data
         
-        resource_placeholders = placeholders[resource_type]
+        resource_placeholders = self.placeholders[resource_type]
         if not isinstance(resource_placeholders, list):
             return data
         
@@ -364,12 +361,10 @@ class KubeResourceReader:
     
     def apply_search_replace(self, data: json, config_path: Path, resource_type: str) -> json:
         """Apply search and replace operations on YAML content based on configuration."""
-        placeholders = self.load_placeholders(config_path, resource_type)
-        
-        if not placeholders or 'Search_and_Replace' not in placeholders:
+        if not self.placeholders or 'Search_and_Replace' not in self.placeholders:
             return data
         
-        search_replace_config = placeholders['Search_and_Replace']
+        search_replace_config = self.placeholders['Search_and_Replace']
         if not isinstance(search_replace_config, list):
             return data
         
@@ -451,7 +446,7 @@ class KubeResourceReader:
             if not data:
                 print(f"Warning: {input_file} is empty or invalid")
                 return
-            
+            self.load_placeholders(config_path, service_type)
             with open(output_file, 'w') as output_f:
                 # Iterate through each resource type and its list of resources
                 for resource_type, resource_list in data.items():
