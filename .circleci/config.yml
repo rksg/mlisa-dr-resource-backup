@@ -1,0 +1,30 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: cimg/base:2025.05
+    steps:
+      - setup_remote_docker:
+          version: default
+      - checkout
+      - run:
+          name: Build mlisa-dr-resource-backup
+          command: |
+            TAG=":${CIRCLE_SHA1:0:7}" docker compose build --no-cache build-env mlisa-dr-resource-backup
+            docker tag mlisa-dr-resource-backup:${CIRCLE_SHA1:0:7} ${GCR_HOSTNAME}/${GCR_PROJECT_ID}/mlisa-dr-resource-backup:${CIRCLE_SHA1:0:7}
+      - run:
+          name: Push mlisa-dr-resource-backup
+          command: |
+            docker logout > /dev/null 2>&1
+            echo "${GCR_KEY}" | docker login -u _json_key --password-stdin https://${GCR_HOSTNAME}
+            docker push ${GCR_HOSTNAME}/${GCR_PROJECT_ID}/mlisa-dr-resource-backup:${CIRCLE_SHA1:0:7}
+
+workflows:
+  run_ci:
+    jobs:
+      - build:
+          context: org-global
+          filters:
+            branches:
+              only: master
