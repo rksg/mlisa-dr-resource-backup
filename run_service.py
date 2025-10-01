@@ -62,6 +62,10 @@ class ServiceRunner:
         print("\n" + "=" * 60)
         # Run kafka extraction
         generated_files.append(kube_resource_reader.run_kube_extraction(environment, cluster, 'kafka'))
+
+        print("\n" + "=" * 60)
+        # Run monitoring extraction
+        generated_files.append(kube_resource_reader.run_kube_extraction(environment, cluster, 'monitoring'))
         
         return generated_files
 
@@ -82,6 +86,7 @@ def read_config_from_gcs_utils(gcs_config_bucket_name: str) -> bool:
     Raises:
         ValueError: If GCS Reader fails to copy files or bucket is not accessible
     """
+    print(f"Reading config from GCS: {gcs_config_bucket_name}")
     if not GCSReader(gcs_config_bucket_name)._copy_from_gcs("static-configs/*", "./static-configs/"):
         raise ValueError("GCS Reader not initialized. Set use_gcs=True to enable GCS functionality.") 
     return True
@@ -164,7 +169,7 @@ Examples:
     generated_files = runner.run_services(args.environment, args.cluster)
     
     # Exit with appropriate code
-    if generated_files and len(generated_files) == 4:
+    if generated_files and len(generated_files) == 5:
         print("\n✅ Service execution completed successfully")
         if args.skip_gcs == False:
             for output_filename in generated_files:

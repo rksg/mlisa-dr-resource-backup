@@ -13,13 +13,15 @@ Key Features:
 - Integrates with Google Cloud Storage for configuration management
 - Supports multiple environments (stg, prod-us, prod-eu, prod-asia)
 - Supports multiple cluster types (rai, r1-rai)
-- Supports multiple resource types (druid, kafka)
+- Supports multiple resource types (druid, kafka, monitoring)
 
 Usage: 
     python3 kube_resource_reader.py <environment> <cluster> <resource_type> [--gcs-bucket BUCKET]
     
 Examples: 
     python3 kube_resource_reader.py stg rai druid
+    python3 kube_resource_reader.py stg rai monitoring
+    python3 kube_resource_reader.py stg rai kafka
     python3 kube_resource_reader.py stg rai kafka --use-gcs false
     python3 kube_resource_reader.py prod-us r1-rai druid --gcs-bucket mlisa-dr-resource-backup
 
@@ -33,7 +35,6 @@ Author: RSA MLISA Team
 Version: 1.1.0
 """
 
-import argparse
 import json
 import subprocess
 import sys
@@ -236,6 +237,8 @@ class KubeResourceReader:
             annotations.pop('kubernetes.io/change-cause', None)
             annotations.pop('cloud.google.com/neg', None)
             annotations.pop('cloud.google.com/neg-status', None)
+            annotations.pop('volume.kubernetes.io/selected-node', None)
+            annotations.pop('pv.kubernetes.io/bind-completed', None)
             
             # Clean labels
             labels = metadata.get('labels', {})
@@ -274,6 +277,9 @@ class KubeResourceReader:
                     spec.pop('clusterIPs', None)
                     spec.pop('loadBalancerIP', None)
 
+                if data.get('kind') == 'PersistentVolumeClaim':
+                    spec.pop('volumeName', None)
+
             data.pop('status', None)
 
             # Convert back to YAML with proper formatting
@@ -286,6 +292,8 @@ class KubeResourceReader:
     def fetch_resource(self, resource_type: str, resource_name: str, cluster_context: str, namespace_name: str) -> Optional[json]:
         """Fetch a specific Kubernetes resource."""
         try:
+            if resource_name == "mlisa-monitoring-fluentd" or resource_name == "mlisa-monitoring-fluentd-config":
+                namespace_name = "kube-system"
             result = subprocess.run([
                 'kubectl', '-n', namespace_name, 'get',
                 resource_type, resource_name, '-o', 'json', '--context', cluster_context
@@ -306,12 +314,16 @@ class KubeResourceReader:
                 self.placeholders = yaml.safe_load(f) or {}
                 print(f"Loaded placeholders: {self.placeholders}")
                 return self.placeholders
+        except FileNotFoundError:
+            print(f"Warning: Placeholder file {placeholder_file} not found, using empty placeholders")
+            self.placeholders = {}
+            return self.placeholders
         except yaml.YAMLError as e:
             print(f"Warning: Failed to parse placeholder file: {e}")
             self.placeholders = {}
             return self.placeholders
     
-    def add_placeholders(self, data: json, config_path: Path, resource_type: str, resource_name: str, service_type_name: str) -> json:
+    def add_placeholders(self, data: json, resource_type: str, resource_name: str) -> json:
         """Add placeholder values enclosed in double pipe symbols based on configuration."""
         if not self.placeholders or resource_type not in self.placeholders:
             return data
@@ -359,7 +371,7 @@ class KubeResourceReader:
         
         return data
     
-    def apply_search_replace(self, data: json, config_path: Path, resource_type: str) -> json:
+    def apply_search_replace(self, data: json, resource_type: str) -> json:
         """Apply search and replace operations on YAML content based on configuration."""
         if not self.placeholders or 'Search_and_Replace' not in self.placeholders:
             return data
@@ -399,7 +411,7 @@ class KubeResourceReader:
         Args:
             environment (str): Environment name (e.g., 'stg', 'prod-us', 'prod-eu', 'prod-asia')
             cluster (str): Cluster type ('rai' or 'r1-rai')
-            service_type (str): Service type ('druid' or 'kafka')
+            service_type (str): Service type ('druid' or 'kafka' or 'monitoring')
             
         Returns:
             str: Path to the generated output file containing the extracted resources
@@ -464,10 +476,10 @@ class KubeResourceReader:
                                 
                                 if json_data:
                                     # Add placeholder values if configured
-                                    json_data_with_placeholders = self.add_placeholders(json_data, config_path, resource_type, resource_name, service_type)
+                                    json_data_with_placeholders = self.add_placeholders(json_data, resource_type, resource_name)
                                     
                                     # Apply search and replace operations
-                                    json_data_with_replacements = self.apply_search_replace(json_data_with_placeholders, config_path, resource_type)
+                                    json_data_with_replacements = self.apply_search_replace(json_data_with_placeholders, resource_type)
                                     
                                     # Clean up the YAML content to ensure proper formatting
                                     cleaned_yaml = yaml.dump(
