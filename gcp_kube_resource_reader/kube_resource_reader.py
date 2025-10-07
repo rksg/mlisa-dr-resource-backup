@@ -262,8 +262,15 @@ class KubeResourceReader:
                         template_annotations = template_metadata.get('annotations', {})
                         template_annotations.pop('kubectl.kubernetes.io/restartedAt', None)
                         template_annotations.pop('kubectl.kubernetes.io/last-applied-configuration', None)
+                        template_annotations.pop('scheduler.alpha.kubernetes.io/critical-pod', None)
                         template_metadata.pop('creationTimestamp', None)
                     
+                    template_spec = template.get('spec', {})
+                    if template_spec:
+                        node_selector = template_spec.get('nodeSelector', {})
+                        if node_selector and node_selector.get('beta.kubernetes.io/os'):
+                            node_selector['kubernetes.io/os'] = node_selector.pop('beta.kubernetes.io/os')
+                        
                     # Clean selector
                     selector = spec.get('selector', {})
                     if selector:
